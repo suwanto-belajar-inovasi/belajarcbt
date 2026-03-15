@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistem Keuangan Pembayaran SPP BIZA</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root {
+  --bg-image: url('https://img.freepik.com/free-vector/white-abstract-background-3d-paper-style_23-2148390818.jpg');
+  --primary-grad: linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%);
+}
+body { background-image: var(--bg-image); background-size: cover; background-attachment: fixed; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+.main-container { max-width: 500px; margin: 30px auto; background: rgba(255, 255, 255, 0.98); border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+display: none; padding-bottom: 20px; overflow: hidden; }
+
+#loading { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:99999; display:none; flex-direction: column; justify-content:center; align-items:center; }
+
+#saran-siswa { position: absolute; width: 100%; max-height: 250px; overflow-y: auto; background: white; border: 1px solid #ddd; z-index: 2000; display: none; }
+.saran-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; } .saran-item:hover { background-color: #f0f8ff; }
+
+.dash-card { border-radius: 10px; color: white; padding: 10px; text-align: center; margin-bottom: 10px; font-size: 0.8rem; }
+.nav-link.active { background-color: #4e54c8 !important; color: white !important; }
+
+/* --- CSS PRINT FIX (Thermal 58mm) --- */
+@media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; background: white; display: block !important; }
+    @page { margin: 0; }
+}
+
+#print-area { display: none; font-family: 'Courier New', monospace; width: 58mm; margin: 0 auto; font-size: 11px; line-height: 1.2; padding: 10px; background: #fff; z-index: 9999; }
+.nota-kop { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 5px; }
+.nota-kop h3 { margin: 0; font-size: 14px; font-weight: bold; }
+.nota-info { margin-bottom: 5px; font-size: 10px; }
+.nota-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+.nota-total { border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; font-weight: bold; }
+.nota-footer { text-align: center; margin-top: 15px; font-size: 9px; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner-border text-primary"></div>
+  <div class="mt-2 fw-bold">Memproses...</div>
+</div>
+
+<div id="print-area">
+  <div class="nota-kop">
+    <img src="https://cdn-icons-png.flaticon.com/512/2995/2995620.png" width="40" class="mb-1">
+    <h3>SEKOLAH MAJU JAYA</h3>
+    Jl. Pendidikan No.1<br>Surabaya
+  </div>
+  <div class="nota-info">
+    <div>Tgl : <span id="p-tanggal"></span></div>
+    <div>ID  : <span id="p-id"></span></div>
+    <div>Sis : <span id="p-siswa"></span></div>
+    <div>Kls : <span id="p-kelas"></span></div>
+    <div>Pet : <span id="p-petugas"></span></div>
+  </div>
+  <div style="border-bottom:1px dashed #000; margin:5px 0;"></div>
+  
+  <div id="p-items"></div> 
+
+  <div class="nota-row nota-total">
+    <span>TOTAL BAYAR</span>
+    <span id="p-total"></span>
+  </div>
+  <div class="nota-row">
+    <span>SISA TAGIHAN</span>
+    <span id="p-sisa"></span>
+  </div>
+
+  <div class="nota-footer">
+    Terima Kasih.<br>
+    Harap simpan bukti ini.<br>
+    <i>Dicetak: <span id="print-time"></span></i>
+  </div>
+</div>
+
+<div id="page-login" class="main-container fade-in" style="display:block;">
+  <div class="text-center pt-5 pb-3">
+    <img src="https://lh3.googleusercontent.com/d/11HTaLU0BfFie3C2GHZHTETyNDwllq0dT" alt="Logo Sekolah" width="80" class="mb-3">
+    <h4 class="fw-bold text-primary">APP KEUANGAN</h4>
+    <small class="text-muted">Sistem Pembayaran YayasanPondok Ilmu Sakinah</small>
+  </div>
+  <div class="p-4">
+    <form onsubmit="handleLogin(event)">
+      <div class="mb-3">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-user"></i></span>
+            <input type="text" id="username" class="form-control" placeholder="Username" required>
+        </div>
+      </div>
+      <div class="mb-4">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+            <input type="password" id="password" class="form-control" placeholder="Password" required>
+        </div>
+      </div>
+      <button type="submit" class="btn w-100 py-2 text-white fw-bold shadow-sm" style="background: var(--primary-grad)">MASUK</button>
+    </form>
+  </div>
+</div>
+
+<div id="page-app" class="main-container fade-in">
+  <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+    <div class="d-flex align-items-center">
+        <img src="https://cdn-icons-png.flaticon.com/512/2995/2995620.png" width="30" class="me-2">
+        <strong id="user-name">User</strong>
+    </div>
+    <button onclick="handleLogout()" class="btn btn-sm btn-outline-danger"><i class="fas fa-sign-out-alt"></i></button>
+  </div>
+
+  <div id="view-bendahara" style="display:none;">
+    <div class="p-3">
+      <div class="row g-2">
+        <div class="col-6"><div class="dash-card bg-success">Masuk<div class="fw-bold" id="stat-masuk">0</div></div></div>
+        <div class="col-6"><div class="dash-card bg-danger">Keluar<div class="fw-bold" id="stat-keluar">0</div></div></div>
+        <div class="col-6"><div class="dash-card bg-primary">Saldo<div class="fw-bold" id="stat-saldo">0</div></div></div>
+        <div class="col-6"><div class="dash-card bg-warning text-dark">Piutang<div class="fw-bold" id="stat-tunggakan">0</div></div></div>
+      </div>
+    </div>
+    
+    <div class="px-3 mb-3">
+      <div class="card p-2 border-0 shadow-sm">
+        <h6 class="text-center small text-muted">Kekurangan Per Kelas</h6>
+        <div style="height:200px"><canvas id="chartBendahara"></canvas></div>
+      </div>
+    </div>
+
+    <ul class="nav nav-pills nav-fill px-3 pb-2">
+      <li class="nav-item"><a class="nav-link active" onclick="switchTab('bayar', this)">Bayar</a></li>
+      <li class="nav-item"><a class="nav-link" onclick="switchTab('cek', this)">Riwayat</a></li>
+      <li class="nav-item"><a class="nav-link" onclick="switchTab('keluar', this)">Keluar</a></li>
+    </ul>
+
+    <div id="tab-bayar" class="p-4 tab-content">
+      <div class="mb-3 position-relative">
+        <input type="text" id="input-nama" class="form-control fw-bold" placeholder="Cari Siswa (Ketik Nama)..." autocomplete="off">
+        <div id="saran-siswa"></div>
+        <input type="hidden" id="input-nis">
+        <input type="hidden" id="input-nama-real">
+        <input type="hidden" id="input-kelas-real">
+      </div>
+      
+      <div id="list-tagihan" class="mb-3 border p-2 bg-light rounded" style="max-height:200px; overflow-y:auto;">
+        <div class="text-center text-muted mt-3"><i class="fas fa-search fa-2x"></i><br>Cari siswa dulu</div>
+      </div>
+      
+      <div class="d-flex justify-content-between mb-2 p-2 bg-white border rounded">
+          <strong>Total Bayar:</strong>
+          <span class="text-primary fw-bold" id="lbl-total">Rp0</span>
+      </div>
+      
+      <select id="metode-bayar" class="form-select mb-2" onchange="toggleMetode()">
+          <option>Tunai</option>
+          <option>Transfer</option>
+      </select>
+      
+      <div id="box-transfer" style="display:none" class="mb-2">
+          <label class="text-danger small">*Wajib Upload Bukti Transfer</label>
+          <input type="file" id="file-bukti" class="form-control">
+      </div>
+      
+      <button onclick="submitBayar()" class="btn w-100 text-white fw-bold mt-2" style="background:var(--primary-grad)">
+          <i class="fas fa-save me-2"></i> PROSES BAYAR
+      </button>
+    </div>
+
+    <div id="tab-cek" class="p-4 tab-content" style="display:none;">
+      <h6 class="border-bottom pb-2">Riwayat Pembayaran Siswa</h6>
+      <div id="riwayat-container">Cari siswa dulu di tab Bayar...</div>
+    </div>
+
+    <div id="tab-keluar" class="p-4 tab-content" style="display:none;">
+      <form onsubmit="submitPengeluaran(event)">
+        <div class="mb-2"><select id="out-kategori" class="form-select"><option>Operasional</option><option>Gaji</option></select></div>
+        <div class="mb-2"><input type="text" id="out-ket" class="form-control" placeholder="Keterangan Pengeluaran" required></div>
+        <div class="mb-3"><input type="number" id="out-nominal" class="form-control" placeholder="Nominal (Rp)" required></div>
+        <button class="btn btn-danger w-100"><i class="fas fa-minus-circle me-2"></i> SIMPAN PENGELUARAN</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="view-guru" style="display:none;" class="p-4">
+    <h5 class="mb-3">Kelas <span id="guru-kelas" class="text-primary fw-bold"></span></h5>
+    <div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-dark"><tr><th>Nama</th><th class="text-end">Tunggakan</th></tr></thead><tbody id="guru-table-body"></tbody></table></div>
+  </div>
+
+  <div id="view-wali" style="display:none;" class="p-4">
+    <div class="card bg-primary text-white mb-3 text-center p-3"><h5 id="wali-siswa-nama">...</h5><small id="wali-siswa-kelas">...</small></div>
+    <ul class="list-group mb-3" id="wali-list-tagihan"></ul><div class="alert alert-danger text-center fw-bold" id="wali-total-hutang">Rp0</div>
+  </div>
+</div>
+
+<script>
+const SESS = 'SKEU_V13_FIX';
+let DB_SISWA=[], CUR_TAG=[], LAST_NOTA=null, chartInstance=null, CACHE_HIST=[];
+
+window.onload = () => { if(localStorage.getItem(SESS)) initApp(JSON.parse(localStorage.getItem(SESS))); };
+
+function loading(s){ document.getElementById('loading').style.display=s?'flex':'none'; }
+function fmt(n){ return 'Rp'+parseInt(n).toLocaleString('id-ID'); }
+
+function handleLogout(){ localStorage.removeItem(SESS); location.reload(); }
+
+function handleLogin(e){
+  e.preventDefault();
+  let u=document.getElementById('username').value, p=document.getElementById('password').value;
+  loading(true);
+  google.script.run.withSuccessHandler(r=>{
+    loading(false);
+    if(r.status==='sukses'){ localStorage.setItem(SESS,JSON.stringify(r)); initApp(r); }
+    else Swal.fire('Gagal','Username atau Password Salah','error');
+  }).prosesLogin({username:u,password:p});
+}
+
+function initApp(u){
+  document.getElementById('page-login').style.display='none';
+  document.getElementById('page-app').style.display='block';
+  document.getElementById('user-name').innerText=u.akses;
+
+  if(u.role==='Bendahara'){
+    document.getElementById('view-bendahara').style.display='block';
+    loadBendahara();
+  } else if(u.role==='Guru') {
+    document.getElementById('view-guru').style.display='block';
+    document.getElementById('guru-kelas').innerText=u.akses;
+    google.script.run.withSuccessHandler(d=>{
+      let b=document.getElementById('guru-table-body'); b.innerHTML='';
+      d.forEach(r=> b.innerHTML+=`<tr><td>${r.nama}</td><td class="text-end text-danger">${fmt(r.totalTunggakan)}</td></tr>`);
+    }).getDataGuru(u.akses);
+  } else {
+    document.getElementById('view-wali').style.display='block';
+    google.script.run.withSuccessHandler(d=>{
+      document.getElementById('wali-siswa-nama').innerText=d.nama;
+      document.getElementById('wali-siswa-kelas').innerText=d.kelas;
+      let l=document.getElementById('wali-list-tagihan'); l.innerHTML='';
+      d.list.forEach(i=> l.innerHTML+=`<li class="list-group-item d-flex justify-content-between"><span>${i.nama}</span><span class="badge bg-danger">${fmt(i.sisa)}</span></li>`);
+      document.getElementById('wali-total-hutang').innerText="Total: "+fmt(d.totalHutang);
+    }).getDataWali(u.akses);
+  }
+}
+
+function loadBendahara(){
+  google.script.run.withSuccessHandler(r=>{
+    DB_SISWA = r.siswa;
+    document.getElementById('stat-masuk').innerText = fmt(r.stats.masuk);
+    document.getElementById('stat-keluar').innerText = fmt(r.stats.keluar);
+    document.getElementById('stat-saldo').innerText = fmt(r.stats.saldo);
+    document.getElementById('stat-tunggakan').innerText = fmt(r.stats.tunggakan);
+    loadChart();
+  }).getInitialData();
+}
+
+function loadChart(){
+  google.script.run.withSuccessHandler(d=>{
+    if(chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(document.getElementById('chartBendahara'), {
+      type:'bar',
+      data:{labels:d.labels, datasets:[{label:'Tunggakan (Rp)', data:d.values, backgroundColor:'#e74a3b'}]},
+      options:{maintainAspectRatio:false, plugins:{legend:{display:false}}}
+    });
+  }).getChartData('Bendahara', null);
+}
+
+// --- SEARCH ENGINE ---
+document.getElementById('input-nama').addEventListener('input', function(){
+  let v=this.value.toLowerCase(), b=document.getElementById('saran-siswa'); b.innerHTML='';
+  if(v.length<2){b.style.display='none';return;}
+  let m=DB_SISWA.filter(s=>s[1].toLowerCase().includes(v));
+  if(m.length){
+    b.style.display='block';
+    m.forEach(s=>{
+      let d=document.createElement('div'); d.className='saran-item'; 
+      d.innerHTML=`<b>${s[1]}</b> <small>(${s[2]})</small>`;
+      d.onclick=()=>{
+        document.getElementById('input-nama').value=s[1];
+        document.getElementById('input-nama-real').value=s[1];
+        document.getElementById('input-nis').value=s[0];
+        document.getElementById('input-kelas-real').value=s[2]; 
+        b.style.display='none';
+        loadTag(s[0]); loadRiwayat(s[0]);
+      };
+      b.appendChild(d);
+    });
+  } else { b.style.display='none'; }
+});
+
+function loadTag(nis){
+  document.getElementById('list-tagihan').innerHTML='<div class="text-center p-2">Loading Tagihan...</div>';
+  google.script.run.withSuccessHandler(r=>{ CUR_TAG=r.list; renderList(r.list); }).getTagihanSiswa(nis);
+}
+
+function renderList(l){
+  let el=document.getElementById('list-tagihan'); el.innerHTML='';
+  if(l.length==0) return el.innerHTML='<div class="text-center text-success fw-bold p-3"><i class="fas fa-check-circle fa-2x"></i><br>LUNAS</div>';
+  l.forEach((i,x)=> el.innerHTML+=`
+    <div class="border-bottom p-2 bg-white mb-1 d-flex justify-content-between align-items-center">
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input chk" id="c${x}" data-x="${x}" onchange="upd(${x})">
+        <label class="form-check-label" for="c${x}">${i.nama}</label>
+      </div>
+      <input type="number" id="v${x}" class="form-control form-control-sm w-50" value="${i.sisa}" disabled oninput="calc()">
+    </div>`);
+}
+
+function upd(x){ document.getElementById(`v${x}`).disabled=!document.getElementById(`c${x}`).checked; calc(); }
+
+function calc(){ 
+  let t=0; 
+  document.querySelectorAll('.chk:checked').forEach(c=>t+=Number(document.getElementById(`v${c.dataset.x}`).value)); 
+  document.getElementById('lbl-total').innerText=fmt(t); 
+}
+
+// --- PEMBAYARAN ---
+function submitBayar(){
+  let nis=document.getElementById('input-nis').value, items=[];
+  document.querySelectorAll('.chk:checked').forEach(c=>{
+    let x=c.dataset.x, v=Number(document.getElementById(`v${x}`).value);
+    if(v>0) items.push({kode:CUR_TAG[x].kode, namaTagihan:CUR_TAG[x].nama, nominalBayar:v});
+  });
+  if(items.length==0) return Swal.fire('Peringatan','Pilih minimal satu tagihan untuk dibayar','warning');
+
+  let met = document.getElementById('metode-bayar').value;
+  let file = document.getElementById('file-bukti');
+
+  if(met === 'Transfer' && file.files.length === 0) {
+    return Swal.fire('Gagal', 'Untuk Transfer, Wajib Upload Bukti!', 'error');
+  }
+  loading(true);
+  let pl={
+    nis:nis,
+    namaSiswa:document.getElementById('input-nama-real').value,
+    kelas:document.getElementById('input-kelas-real').value,
+    petugas:document.getElementById('user-name').innerText,
+    metode:met,
+    items:items
+  };
+
+  if(met=='Transfer'){
+    let r=new FileReader(); r.onload=e=>{ send({...pl, fileData:e.target.result.split(',')[1], mimeType:file.files[0].type}); }; r.readAsDataURL(file.files[0]);
+  } else send(pl);
+}
+
+function send(pl){
+  google.script.run
+    .withSuccessHandler(r=>{
+      loading(false);
+      if(!r || r.status!=='sukses'){
+        Swal.fire('Error','Gagal simpan data','error'); return;
+      }
+      LAST_NOTA = r.nota;
+      Swal.fire({
+        title: 'Berhasil!', icon: 'success',
+        html: `<button onclick="cetakStruk()" class="btn btn-primary w-100 mb-2"><i class="fas fa-print"></i> Cetak Nota</button>
+               <a href="${r.wa}" target="_blank" class="btn btn-success w-100"><i class="fab fa-whatsapp"></i> Kirim WA</a>`,
+        showConfirmButton: false, showCloseButton: true
+      });
+      // Refresh Data
+      loadTag(pl.nis);
+      loadRiwayat(pl.nis);
+      document.getElementById('lbl-total').innerText="Rp0";
+      document.querySelectorAll('.chk').forEach(c=>c.checked=false);
+    })
+    .withFailureHandler(err=>{ loading(false); Swal.fire('Error',err.message,'error'); })
+    .prosesPembayaran(pl);
+}
+
+// --- FUNGSI CETAK NOTA (FIXED) ---
+function cetakStruk(dOverride){
+  let d = dOverride || LAST_NOTA;
+  if(!d) return Swal.fire('Error', 'Data nota tidak ditemukan!', 'error');
+  
+  // 1. Isi Data ke Elemen Print
+  document.getElementById('p-id').innerText = d.id;
+  document.getElementById('p-tanggal').innerText = d.tanggal;
+  document.getElementById('p-siswa').innerText = d.siswa;
+  document.getElementById('p-kelas').innerText = d.kelas || '-';
+  document.getElementById('p-petugas').innerText = d.petugas;
+  document.getElementById('print-time').innerText = new Date().toLocaleString('id-ID');
+
+  // 2. Loop Items
+  let h='';
+  if(d.items && d.items.length > 0){
+    d.items.forEach(i => {
+      h += `<div class="nota-row">
+              <span>${i.namaTagihan.substring(0,20)}</span>
+              <span>${parseInt(i.nominalBayar).toLocaleString('id-ID')}</span>
+            </div>`;
+    });
+  } else {
+    h = '<div class="text-center">- Item Error -</div>';
+  }
+  document.getElementById('p-items').innerHTML = h;
+
+  // 3. Totals
+  document.getElementById('p-total').innerText = fmt(d.totalBayar);
+  document.getElementById('p-sisa').innerText = fmt(d.totalSisa);
+
+  // 4. Proses Print
+  let area = document.getElementById('print-area');
+  
+  // Tampilkan Area Print
+  area.style.display = 'block';
+  
+  // Delay sedikit agar DOM ter-render baru print
+  setTimeout(() => {
+      window.print();
+      // Sembunyikan lagi setelah dialog print tertutup/selesai (1 detik)
+      setTimeout(() => {
+        area.style.display = 'none';
+      }, 1000);
+  }, 500); 
+}
+
+// --- RIWAYAT ---
+function loadRiwayat(nis){
+  let d=document.getElementById('riwayat-container'); d.innerHTML='<div class="text-center">Loading...</div>';
+  google.script.run.withSuccessHandler(h=>{
+    CACHE_HIST = h;
+    if(h.length==0) return d.innerHTML='<div class="text-muted text-center p-3">Belum ada riwayat</div>';
+    let html='<div class="list-group">';
+    h.forEach((x,i)=> html+=`
+      <div class="list-group-item d-flex justify-content-between align-items-center">
+        <div><b>${x.id}</b><br><small class="text-muted">${x.tanggal}</small></div>
+        <div class="text-end">
+          <b class="text-success">${fmt(x.total)}</b><br>
+          <button class="btn btn-sm btn-outline-dark mt-1" onclick="rePrint(${i})"><i class="fas fa-print"></i></button>
+        </div>
+      </div>`);
+    d.innerHTML=html+'</div>';
+  }).getRiwayatSiswa(nis);
+}
+
+function rePrint(i){
+  let r = CACHE_HIST[i];
+  if(!r) return;
+  
+  // Ambil data siswa dari input hidden (karena riwayat diload setelah search siswa)
+  let namaSiswa = document.getElementById('input-nama-real').value || "-";
+  let kelasSiswa = document.getElementById('input-kelas-real').value || "-";
+
+  let d = {
+    id: r.id, 
+    tanggal: r.tanggal,
+    siswa: namaSiswa,
+    kelas: kelasSiswa,
+    petugas: r.petugas,
+    items: r.items, // Array object {namaTagihan, nominalBayar}
+    totalBayar: r.total,
+    totalSisa: 0 // Riwayat lama tidak menyimpan snapshot sisa, di-set 0 atau -
+  };
+  cetakStruk(d);
+}
+
+function switchTab(t,e){ 
+  document.querySelectorAll('.tab-content').forEach(d=>d.style.display='none'); 
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); 
+  document.getElementById('tab-'+t).style.display='block'; 
+  e.classList.add('active'); 
+}
+
+function toggleMetode(){ 
+  document.getElementById('box-transfer').style.display = document.getElementById('metode-bayar').value=='Transfer'?'block':'none'; 
+}
+
+function submitPengeluaran(e){ 
+  e.preventDefault(); loading(true); 
+  google.script.run.withSuccessHandler(()=>{
+    loading(false); Swal.fire('Tersimpan','Pengeluaran dicatat','success');
+    document.getElementById('out-ket').value='';
+    document.getElementById('out-nominal').value='';
+  }).simpanPengeluaran({
+    kategori:document.getElementById('out-kategori').value, 
+    keterangan:document.getElementById('out-ket').value, 
+    nominal:document.getElementById('out-nominal').value, 
+    petugas:document.getElementById('user-name').innerText
+  }); 
+}
+</script>
+</body>
+</html>
